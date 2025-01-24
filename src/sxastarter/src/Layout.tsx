@@ -29,11 +29,16 @@ const Layout = ({ layoutData, headLinks }: LayoutProps): JSX.Element => {
     return text.split(' ').slice(0, 200).join(' ');
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getFieldValue = (field: any) => {
+    return field?.value?.toString() || '';
+  };
+
   return (
     <>
       <Scripts />
       <Head>
-        <title>{fields?.Title?.value?.toString() || 'Page'}</title>
+        <title>{getFieldValue(fields?.Title) || 'Page'}</title>
         <link rel="icon" href={`${publicUrl}/favicon.ico`} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin={'anonymous'} />
@@ -46,13 +51,13 @@ const Layout = ({ layoutData, headLinks }: LayoutProps): JSX.Element => {
           data-siteName={layoutData?.sitecore?.context?.site?.name}
           data-itemId={route?.itemId}
           data-itemName={route?.name}
-          data-itemTitle={fields?.Title?.value?.toString() || ''}
+          data-itemTitle={getFieldValue(fields?.Title)}
           data-itemLanguage={route?.itemLanguage}
           data-itemPath={layoutData?.sitecore?.context?.itemPath}
-          data-itemContent={getFirst200Words(fields?.Content?.value?.toString() || '')}
+          data-itemContent={getFirst200Words(getFieldValue(fields?.Content))}
           data-itemTemplateId={route?.templateId}
           data-itemTemplateName={route?.templateName}
-          data-itemCategory={fields?.Category?.value?.toString() || ''}
+          data-itemCategory={getFieldValue(fields?.Category)}
         />
         {headLinks.map((headLink) => (
           <link rel={headLink.rel} key={headLink.href} href={headLink.href} />
