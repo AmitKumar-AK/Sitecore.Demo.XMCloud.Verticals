@@ -8,12 +8,7 @@
     "plugin:yaml/recommended",
     "plugin:prettier/recommended"
   ],
-  "plugins": [
-    "@typescript-eslint",
-    "prettier",
-    "yaml",
-    "react"
-  ],
+  "plugins": ["@typescript-eslint", "prettier", "yaml", "react"],
   "ignorePatterns": [".generated/**/*", "**/*.d.ts", "**/*.js"],
   "rules": {
     "@next/next/no-img-element": "off", // Don't force next/image

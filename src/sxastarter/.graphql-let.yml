@@ -5,4 +5,4 @@ plugins:
   - typescript-operations
   - typed-document-node
 config:
-    useIndexSignature: true
+  useIndexSignature: true

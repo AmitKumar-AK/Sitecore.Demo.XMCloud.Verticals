@@ -32,7 +32,7 @@ const Layout = ({ layoutData, headLinks }: LayoutProps): JSX.Element => {
   const contextSiteClass = `site-${theme?.toLowerCase()}`;
   const getFirst200Words = (text: string) => {
     return text.split(' ').slice(0, 200).join(' ');
-  };  
+  };
 
   return (
     <>
@@ -45,18 +45,20 @@ const Layout = ({ layoutData, headLinks }: LayoutProps): JSX.Element => {
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
         <meta property="og:site" content={layoutData?.sitecore?.context?.site?.name} />
         <meta name="description" content="A Verticals demo site."></meta>
-        <meta name="application-details" content={layoutData?.sitecore?.context?.site?.name} 
-        data-siteName={layoutData?.sitecore?.context?.site?.name} 
-        data-itemId={route?.itemId}
-        data-itemName={route?.name}
-        data-itemTitle={fields?.Title?.value?.toString() || ''}
-        data-itemLanguage={route?.itemLanguage}
-        data-itemPath={layoutData?.sitecore?.context?.itemPath}
-        data-itemContent={getFirst200Words(fields?.Content?.value?.toString() || '')}
-        data-itemTemplateId={route?.templateId}
-        data-itemTemplateName={route?.templateName}
-        data-itemCategory={fields?.Category?.value?.toString() || ''}
-    />        
+        <meta
+          name="application-details"
+          content={layoutData?.sitecore?.context?.site?.name}
+          data-siteName={layoutData?.sitecore?.context?.site?.name}
+          data-itemId={route?.itemId}
+          data-itemName={route?.name}
+          data-itemTitle={fields?.Title?.value?.toString() || ''}
+          data-itemLanguage={route?.itemLanguage}
+          data-itemPath={layoutData?.sitecore?.context?.itemPath}
+          data-itemContent={getFirst200Words(fields?.Content?.value?.toString() || '')}
+          data-itemTemplateId={route?.templateId}
+          data-itemTemplateName={route?.templateName}
+          data-itemCategory={fields?.Category?.value?.toString() || ''}
+        />
         {headLinks.map((headLink) => (
           <link rel={headLink.rel} key={headLink.href} href={headLink.href} />
         ))}

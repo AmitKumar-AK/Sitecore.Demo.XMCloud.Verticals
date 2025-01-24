@@ -1,11 +1,9 @@
 const path = require('path');
 module.exports = {
-  "stories": ['../src/**/*.@(mdx|stories.@(js|jsx|ts|tsx))'],
+  stories: ['../src/**/*.@(mdx|stories.@(js|jsx|ts|tsx))'],
   staticDirs: ['../public'],
-  addons: [
-    '@storybook/addon-essentials'
-  ],
-  webpackFinal: async config => {
+  addons: ['@storybook/addon-essentials'],
+  webpackFinal: async (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       // To fix the following error:
@@ -14,16 +12,16 @@ module.exports = {
       // BREAKING CHANGE: webpack < 5 used to include polyfills for node.js core modules by default.
       // This is no longer the case. Verify if you need this module and configure a polyfill for it.
       // If you don't want to include a polyfill, you can use an empty module like this:
-	    //     resolve.fallback: { "url": false }
-      "url": false
+      //     resolve.fallback: { "url": false }
+      url: false,
     };
     return config;
   },
   framework: {
-    name: "@storybook/nextjs",
-    options: {}
+    name: '@storybook/nextjs',
+    options: {},
   },
   docs: {
-    autodocs: false
-  }
+    autodocs: false,
+  },
 };
