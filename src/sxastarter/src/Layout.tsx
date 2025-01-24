@@ -17,11 +17,6 @@ interface LayoutProps {
   headLinks: HTMLLink[];
 }
 
-interface RouteFields {
-  [key: string]: unknown;
-  Title?: Field;
-}
-
 const Layout = ({ layoutData, headLinks }: LayoutProps): JSX.Element => {
   const { route } = layoutData.sitecore;
   //const fields = route?.fields as RouteFields;
