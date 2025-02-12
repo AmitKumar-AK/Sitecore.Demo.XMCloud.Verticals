@@ -1,6 +1,6 @@
 # Vertical Demos on XM Cloud
 
-A headless multi-site solution focused on XM Cloud content and site management capabilities. Includes easily customizable sample sites for select industries.
+A headless multi-site solution focused on XM Cloud content and site management capabilities. Includes easily customizable sample sites for select industries. 
 
 ✨ 42 beautiful custom components - enough to build any site you can dream up
 
