@@ -1,3 +1,39 @@
+<#
+.SYNOPSIS
+    Initializes the Sitecore XM Cloud Full-stack local development environment.
+
+.DESCRIPTION
+    This script sets up the necessary environment for the Sitecore XM Cloud Full-stack local development environment project. It includes steps to initialize environment variables, configure TLS/HTTPS certificates, add Windows hosts file entries, and install required modules.
+
+.PARAMETERS
+    -InitEnv
+        Enables initialization of values in the .env file, which may be placed in source control.
+
+    -LicenseXmlPath
+        The path to a valid Sitecore license.xml file.
+
+    -AdminPassword
+        Sets the sitecore\admin password for this environment via environment variable.
+
+    -baseOs
+        Specifies the OS version of the base image. Default is "ltsc2019".
+
+    -EnvFileName
+        Specifies the path of the .env file. Default is ".env".
+
+.EXAMPLE
+    .\init.ps1 -InitEnv -LicenseXmlPath "C:\path\to\license.xml" -AdminPassword "yourpassword"
+    This command initializes the environment with the specified license file and admin password.
+
+.NOTES
+    Created By: Sitecore
+    Updated By: Amit Kumar
+    Created Date: 2023-10-15
+    Update Date: 2025-03-20
+    Version: 1.1
+    This script is intended for use in a development environment.
+#>
+
 [CmdletBinding(DefaultParameterSetName = "no-arguments")]
 Param (
     [Parameter(HelpMessage = "Enables initialization of values in the .env file, which may be placed in source control.",
@@ -18,10 +54,103 @@ Param (
 
     [Parameter(Mandatory = $false, HelpMessage = "Specifies os version of the base image.")]
     [ValidateSet("ltsc2019", "ltsc2022")]
-    [string]$baseOs = "ltsc2019"
+    [string]$baseOs = "ltsc2019",
+
+    [Parameter(Mandatory = $false, HelpMessage = "Specifies the path of the .env file.")]
+    [ValidateSet(".env", "site-two\.env")]
+    [string]$EnvFileName = ".env"
 )
 
 $ErrorActionPreference = "Stop";
+
+# Set the environment variable in the .env file
+function SetEnvVariable {
+    param(
+        [string]$filePath=".env",  # Default path for the .env file
+        [string]$varName,          # Name of the environment variable to set
+        [string]$varValue          # Value to assign to the environment variable
+    )
+
+    Write-Host "Inside SetEnvVariable"  # Log entry into the function
+
+    $envFilePath = Resolve-Path "$PSScriptRoot\$filePath"  # Resolve the full path of the .env file
+
+    if (Test-Path $envFilePath) {  # Check if the .env file exists
+        if ($varName  -ne "" -and  $varValue  -ne "" -and $envFilePath  -ne "") {  # Ensure parameters are not empty
+            Write-Host "Using .env file: $envFilePath" -ForegroundColor Cyan  # Log the file being used
+            # Read the contents of the .env file
+            $envFileContent = Get-Content -Path $envFilePath  # Load the file content into an array
+
+            # Initialize a flag to check if the variable was found
+            $variableFound = $false  # Flag to track if the variable exists
+
+            # Iterate through each line and update the variable if found
+            $updatedContent = $envFileContent | ForEach-Object {
+                if ($_ -match "^\s*$varName\s*=") {  # Check if the line matches the variable name
+                    $variableFound = $true  # Set flag to true if found
+                    "$varName=$varValue"  # Update the line with the new value
+                } else {
+                    $_  # Keep the line unchanged if not matched
+                }
+            }
+
+            # If the variable was not found, add it to the end of the file
+            if (-not $variableFound) {
+                $updatedContent += "$varName=$varValue"  # Append the new variable to the content
+            }
+
+            # Write the updated content back to the .env file
+            Set-Content -Path $envFilePath -Value $updatedContent -Force  # Save changes to the file
+
+            Write-Host "Environment variable '$varName' set to '$varValue' in the .env file."  # Log success message
+        } else {
+            Write-Host "Invalid parameters" -ForegroundColor Red  # Log error for invalid parameters
+        }
+    }
+    else {
+        Write-Error "The .env file does not exist at the specified path: $envFilePath"  # Log error if file doesn't exist
+    }
+}
+
+# Get the environment variable from the .env file
+function GetEnvVariable {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = "Specifies the path of the .env file.")]
+        [string]$filePath = ".env",  # Default path for the .env file
+        [Parameter(Mandatory = $true, HelpMessage = "Specifies the .env name.")]
+        [string]$varName  # Name of the environment variable to retrieve
+    )
+
+    Write-Host "Inside GetEnvVariable"  # Log entry into the function
+
+    $envFilePath = Resolve-Path "$PSScriptRoot\$filePath"  # Resolve the full path of the .env file
+
+    if (Test-Path $envFilePath) {  # Check if the .env file exists
+        if ($varName -ne "" -and $envFilePath -ne "") {  # Ensure parameters are not empty
+            Write-Host "Using .env file: $envFilePath" -ForegroundColor Cyan  # Log the file being used
+            # Read the contents of the .env file
+            $envFileContent = Get-Content -Path $envFilePath  # Load the file content into an array
+
+            # Iterate through each line to find the variable
+            foreach ($line in $envFileContent) {
+                if ($line -match "^\s*$varName\s*=\s*(.+)\s*$") {  # Check if the line matches the variable name
+                    $varValue = $matches[1].Trim()  # Extract the variable value
+                    Write-Host "Environment variable '$varName' found with value '$varValue'."  # Log success message
+                    return $varValue  # Return the found value
+                }
+            }
+
+            Write-Host "Environment variable '$varName' not found in the .env file." -ForegroundColor Yellow  # Log if not found
+            return $null  # Return null if not found
+        } else {
+            Write-Host "Invalid parameters" -ForegroundColor Red  # Log error for invalid parameters
+            return $null  # Return null for invalid parameters
+        }
+    } else {
+        Write-Error "The .env file does not exist at the specified path: $envFilePath"  # Log error if file doesn't exist
+        return $null  # Return null if file doesn't exist
+    }
+}
 
 if ($InitEnv) {
     if (-not $LicenseXmlPath.EndsWith("license.xml")) {
@@ -35,6 +164,16 @@ if ($InitEnv) {
 }
 
 Write-Host "Preparing your Sitecore Containers environment!" -ForegroundColor Green
+
+# Ge the "RENDERING_HOST" Url from .env file
+$renderingHost = GetEnvVariable -filePath $EnvFileName -varName "RENDERING_HOST"
+
+if (($renderingHost -eq $null) -or ($renderingHost -eq ""))
+{
+    Write-Error "RENDERING_HOST is not defined in the .env file."
+    exit 0
+}
+
 
 ################################################
 # Retrieve and import SitecoreDockerTools module
@@ -83,6 +222,7 @@ try {
     & $mkcert -install
     & $mkcert "*.sxastarter.localhost"
     & $mkcert "xmcloudcm.localhost"
+    & $mkcert $renderingHost
 
     # stash CAROOT path for messaging at the end of the script
     $caRoot = "$(& $mkcert -CAROOT)\rootCA.pem"
@@ -105,30 +245,117 @@ Add-HostsEntry "xmcloudcm.localhost"
 Add-HostsEntry "www.sxastarter.localhost"
 Add-HostsEntry "services.sxastarter.localhost"
 Add-HostsEntry "financial.sxastarter.localhost"
+Add-HostsEntry $renderingHost
 
-###############################
-# Generate scjssconfig
-###############################
+if ($EnvFileName -eq "site-two\.env")
+{
+    $JSONFilePath = Resolve-Path "$PSScriptRoot\site-two\xmcloud.build.json"
 
-Set-EnvFileVariable "JSS_DEPLOYMENT_SECRET_xmcloudpreview" -Value $xmCloudBuild.renderingHosts.xmcloudpreview.jssDeploymentSecret
+    if (Test-Path $JSONFilePath) {
+        Write-Host "Using XMC Build JSON file: $JSONFilePath"
+	
+        $jsonContent = Get-Content -Path $JSONFilePath -Raw | ConvertFrom-Json
 
-################################
-# Generate Sitecore Api Key
-################################
+        ###############################
+        # Generate scjssconfig
+        ###############################
 
-# DEMO TEAM CUSTOMIZATION - Remove generation of the Sitecore API key. We want a fixed key.
+        SetEnvVariable $EnvFileName "JSS_DEPLOYMENT_SECRET_xmcloudpreview" $jsonContent.renderingHosts.xmcloudpreview.jssDeploymentSecret
+    }
 
-################################
-# Generate JSS_EDITING_SECRET
-################################
-$jssEditingSecret = Get-SitecoreRandomString 64 -DisallowSpecial
-Set-EnvFileVariable "JSS_EDITING_SECRET" -Value $jssEditingSecret
+    ################################
+    # Generate Sitecore Api Key
+    ################################
+
+    # DEMO TEAM CUSTOMIZATION - Remove generation of the Sitecore API key. We want a fixed key.
+
+    ################################
+    # Generate JSS_EDITING_SECRET
+    ################################
+    $jssEditingSecret = Get-SitecoreRandomString 64 -DisallowSpecial
+    #Set-EnvFileVariable "JSS_EDITING_SECRET" -Value $jssEditingSecret
+
+    SetEnvVariable $EnvFileName "JSS_EDITING_SECRET" $jssEditingSecret
+}
+else
+{
+    $JSONFilePath = Resolve-Path "$PSScriptRoot\xmcloud.build.json"
+
+    if (Test-Path $JSONFilePath) {
+        Write-Host "Using XMC Build JSON file: $JSONFilePath"
+
+        $jsonContent = Get-Content -Path $JSONFilePath -Raw | ConvertFrom-Json
+
+        ###############################
+        # Generate scjssconfig
+        ###############################
+
+        Set-EnvFileVariable "JSS_DEPLOYMENT_SECRET_xmcloudpreview" -Value $jsonContent.renderingHosts.xmcloudpreview.jssDeploymentSecret
+    }
+
+    ################################
+    # Generate Sitecore Api Key
+    ################################
+
+    # DEMO TEAM CUSTOMIZATION - Remove generation of the Sitecore API key. We want a fixed key.
+
+    ################################
+    # Generate JSS_EDITING_SECRET
+    ################################
+    $jssEditingSecret = Get-SitecoreRandomString 64 -DisallowSpecial
+    Set-EnvFileVariable "JSS_EDITING_SECRET" -Value $jssEditingSecret
+}
 
 ###############################
 # Populate the environment file
 ###############################
 
-if ($InitEnv) {
+if ($InitEnv -and $EnvFileName -eq "site-two\.env")
+{
+    Write-Host "[INFO] Using .env file $EnvFileName" -ForegroundColor Red
+
+    Write-Host "Populating required .env file values..." -ForegroundColor Green
+
+    # HOST_LICENSE_FOLDER
+    SetEnvVariable $EnvFileName "HOST_LICENSE_FOLDER" $LicenseXmlPath
+
+    # CM_HOST
+    SetEnvVariable $EnvFileName "CM_HOST" "xmcloudcm.localhost"
+
+    # RENDERING_HOST
+    SetEnvVariable $EnvFileName "RENDERING_HOST" "www.sitetwo.sxastarter.localhost"
+
+    # REPORTING_API_KEY = random 64-128 chars
+    SetEnvVariable $EnvFileName "REPORTING_API_KEY" (Get-SitecoreRandomString 128 -DisallowSpecial)
+
+    # TELERIK_ENCRYPTION_KEY = random 64-128 chars
+    SetEnvVariable $EnvFileName "TELERIK_ENCRYPTION_KEY" (Get-SitecoreRandomString 128)
+
+    # MEDIA_REQUEST_PROTECTION_SHARED_SECRET
+    SetEnvVariable $EnvFileName "MEDIA_REQUEST_PROTECTION_SHARED_SECRET" (Get-SitecoreRandomString 64)
+
+    # SQL_SA_PASSWORD
+    # Need to ensure it meets SQL complexity requirements
+    SetEnvVariable $EnvFileName "SQL_SA_PASSWORD" (Get-SitecoreRandomString 19 -DisallowSpecial -EnforceComplexity)
+
+    # SQL_SERVER
+    SetEnvVariable $EnvFileName "SQL_SERVER" "mssql"
+
+    # SQL_SA_LOGIN
+    SetEnvVariable $EnvFileName "SQL_SA_LOGIN" "sa"
+
+    # SITECORE_ADMIN_PASSWORD
+    SetEnvVariable $EnvFileName "SITECORE_ADMIN_PASSWORD" $AdminPassword
+
+    # SITECORE_VERSION
+    SetEnvVariable $EnvFileName "SITECORE_VERSION" "1-$baseOS"
+
+    # EXTERNAL_IMAGE_TAG_SUFFIX
+    SetEnvVariable $EnvFileName "EXTERNAL_IMAGE_TAG_SUFFIX" $baseOS
+}
+elseif ($InitEnv -and $EnvFileName -eq ".env")
+{
+    Write-Host "[INFO] Using .env file $EnvFileName" -ForegroundColor Red
 
     Write-Host "Populating required .env file values..." -ForegroundColor Green
 
