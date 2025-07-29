@@ -1,5 +1,20 @@
 # Vertical Demos on XM Cloud
 
+[![GitHub license](https://img.shields.io/github/license/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=for-the-badge)](https://github.com/AmitKumar-AK/Sitecore.Demo.XMCloud.Verticals/blob/feature/XMC-VERTICALS-CONTENT-SDK-V1/LICENSE)
+[![GitHub contributors](https://img.shields.io/github/contributors/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=for-the-badge)](https://GitHub.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/graphs/contributors/)
+[![GitHub issues](https://img.shields.io/github/issues/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=for-the-badge)](https://GitHub.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/issues/)
+[![GitHub pull-requests](https://img.shields.io/github/issues-pr/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=for-the-badge)](https://GitHub.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/pulls/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](http://makeapullrequest.com)
+[![GitHub Stars](https://img.shields.io/github/stars/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals?label=GitHub%20Stars&style=for-the-badge)](https://github.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/stargazers)
+![Visitors](https://api.visitorbadge.io/api/visitors?path=https://api.visitorbadge.io/api/visitors?path=https://github.com/AmitKumar-AK/Sitecore.Demo.XMCloud.Verticals/tree/feature/XMC-VERTICALS-CONTENT-SDK-V1&label=Visitors&countColor=%23263759&style=for-the-badge)
+![GitHub language count](https://img.shields.io/github/languages/count/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=for-the-badge)
+![GitHub repo size](https://img.shields.io/github/repo-size/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=for-the-badge)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals?style=for-the-badge)
+
+[![GitHub watchers](https://img.shields.io/github/watchers/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=social&label=Watch&maxAge=2592000)](https://GitHub.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/watchers/)
+[![GitHub forks](https://img.shields.io/github/forks/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=social&label=Fork&maxAge=2592000)](https://GitHub.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/network/)
+[![GitHub stars](https://img.shields.io/github/stars/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals.svg?style=social&label=Star&maxAge=2592000)](https://GitHub.com/amitkumar-ak/Sitecore.Demo.XMCloud.Verticals/stargazers/)
+
 A headless multi-site solution focused on XM Cloud content and site management capabilities. Includes easily customizable sample sites for select industries. 
 
 ✨ 42 beautiful custom components - enough to build any site you can dream up
@@ -7,7 +22,7 @@ A headless multi-site solution focused on XM Cloud content and site management c
 🌍 Multisite support (3 sites ready to go, and more can easily be added)
 
 🇨🇦 Multilingual (English and French-Canadian)
-
+W
 🌓 Light and dark themes
 
 🔗 Single rendering host (with some magic to make it work for completely different sites)
@@ -57,7 +72,7 @@ This is the easier way to get started, as long as you have access to XM Cloud. I
    ```
 
    Open http://localhost:3000 with your browser to see the result.
-   You can start editing the pages by modifying files under the \src\rendering. The pages auto-update as you edit the files.
+   You can start editing the pages by modifying files under the src\sxastarter. The pages auto-update as you edit the files.
 
 ## Quick start (Docker)
 
