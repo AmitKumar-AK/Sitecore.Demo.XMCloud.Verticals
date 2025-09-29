@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface User {
   id: string;
@@ -10,6 +10,31 @@ interface User {
   department?: string;
   location?: string;
   phone?: string;
+}
+
+interface CacheHeaders {
+  vercelCache: string | null;
+  edgeCache: string | null;
+  cacheControl: string | null;
+  dataSource: string | null;
+  apiDuration: string | null;
+  totalDuration: string | null;
+  requestId: string | null;
+  etag: string | null;
+  cacheAge: string | null;
+  edgeTtl: string | null;
+}
+
+interface PerformanceMetric {
+  timestamp: string;
+  page: number;
+  requestDuration: number;
+  serverDuration: number;
+  apiDuration: number | null;
+  cacheStatus: string;
+  dataSource: string;
+  isCacheHit: boolean;
+  itemsReturned: number;
 }
 
 interface ApiResponse {
@@ -57,14 +82,14 @@ const UsersDirectoryEdge = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [cacheInfo, setCacheInfo] = useState<any>(null);
-  const [performanceMetrics, setPerformanceMetrics] = useState<any[]>([]);
+  const [cacheInfo, setCacheInfo] = useState<ApiResponse['cache'] | null>(null); // Fix any type
+  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetric[]>([]); // Fix any type
 
   const logCacheAnalysis = (response: Response, data: ApiResponse, requestStart: number) => {
     const requestDuration = Date.now() - requestStart;
 
     // Extract cache-related headers
-    const cacheHeaders = {
+    const cacheHeaders: CacheHeaders = {
       vercelCache: response.headers.get('X-Vercel-Cache'),
       edgeCache: response.headers.get('X-Edge-Cache'),
       cacheControl: response.headers.get('Cache-Control'),
@@ -131,7 +156,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
     console.groupEnd();
 
     // Store metrics for display
-    const metric = {
+    const metric: PerformanceMetric = {
       timestamp: new Date().toISOString(),
       page: data.pagination.currentPage,
       requestDuration,
@@ -146,7 +171,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
     setPerformanceMetrics((prev) => [...prev.slice(-9), metric]); // Keep last 10 requests
   };
 
-  const loadUsers = async (pageNum: number = 1, append: boolean = false) => {
+  const loadUsers = useCallback(async (pageNum = 1, append = false) => {
     setLoading(true);
     setError(null);
 
@@ -181,11 +206,11 @@ const UsersDirectoryEdge = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Add useCallback to fix the useEffect dependency warning
 
   useEffect(() => {
     loadUsers(1, false);
-  }, []);
+  }, [loadUsers]); // Include loadUsers in dependency array
 
   const handleLoadMore = () => {
     if (!loading && hasMore) {
@@ -369,6 +394,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
             <a
               href="/api/edge/users"
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
             >
               🌐 Edge API
@@ -376,6 +402,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
             <a
               href="/api/edge/users?usemock=true"
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-block px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
             >
               🎭 Force Mock
@@ -383,6 +410,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
             <a
               href="/api/edge/users?nocache=true"
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-block px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
             >
               🚫 Bypass Cache

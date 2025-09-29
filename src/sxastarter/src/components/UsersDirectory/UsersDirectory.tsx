@@ -16,7 +16,7 @@ const UsersDirectoryComponent = (): JSX.Element => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  const loadUsers = async (pageNum: number = 1, append: boolean = false) => {
+  const loadUsers = async (pageNum = 1, append = false) => {
     setLoading(true);
     setError(null);
 
@@ -125,6 +125,7 @@ const UsersDirectoryComponent = (): JSX.Element => {
             <a
               href="/api/test-api"
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
             >
               Test API
@@ -132,6 +133,7 @@ const UsersDirectoryComponent = (): JSX.Element => {
             <a
               href="/api/proxy/users"
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
             >
               Users API
