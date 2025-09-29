@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "build": {
+    "env": {
+      "ENABLE_EXPERIMENTAL_COREPACK": "1"
+    }
+  },
+  "functions": {
+    "src/pages/api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/edge/users",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=600"
+        },
+        {
+          "key": "X-Edge-Cache",
+          "value": "enabled"
+        },
+        {
+          "key": "Vary",
+          "value": "Accept-Encoding"
+        }
+      ]
+    },
+    {
+      "source": "/api/edge/(.*)",
+      "headers": [
+        {
+          "key": "X-Vercel-Cache-Tags",
+          "value": "users,api,sitecore"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/edge/users",
+      "dest": "/api/edge/users",
+      "headers": {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600"
+      }
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/edge/cache/warmup",
+      "schedule": "0 */5 * * *"
+    }
+  ]
+}

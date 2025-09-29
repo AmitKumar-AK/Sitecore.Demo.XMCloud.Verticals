@@ -22,11 +22,7 @@ const nextConfig = {
     // These are all the locales you want to support in your application.
     // These should generally match (or at least be a subset of) those in Sitecore.
     // DEMO TEAM CUSTOMIZATION - Remove unused languages and add some
-    locales: [
-      'en',
-      'fr-CA',
-      'ja-JP',
-    ],
+    locales: ['en', 'fr-CA', 'ja-JP'],
     // END CUSTOMIZATION
     // This is the locale that will be used when visiting a non-locale
     // prefixed path e.g. `/styleguide`.
@@ -82,6 +78,39 @@ const nextConfig = {
       {
         source: '/sitecore/service/:path*',
         destination: `${jssConfig.sitecoreApiHost}/sitecore/service/:path*`,
+      },
+      {
+        // Internal API rewrites for cleaner URLs
+        source: '/integrations/:path*',
+        destination: '/api/proxy/:path*',
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        // Cache API proxy routes
+        source: '/api/proxy/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=600',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'public, s-maxage=300',
+          },
+        ],
+      },
+      {
+        // Cache static assets
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
       },
     ];
   },
