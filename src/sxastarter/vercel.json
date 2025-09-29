@@ -38,15 +38,6 @@
       ]
     }
   ],
-  "routes": [
-    {
-      "src": "/api/edge/users",
-      "dest": "/api/edge/users",
-      "headers": {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600"
-      }
-    }
-  ],
   "crons": [
     {
       "path": "/api/edge/cache/warmup",
