@@ -417,13 +417,14 @@ const UsersDirectoryEdge = (): JSX.Element => {
             </a>
             <button
               onClick={handleRefresh}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors buttonAction"
             >
               🔄 Refresh
-            </button>
+            </button>{' '}
+            &nbsp;
             <button
               onClick={handleForceRefresh}
-              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors buttonAction"
             >
               💥 Force Refresh
             </button>
@@ -515,17 +516,9 @@ const UsersDirectoryEdge = (): JSX.Element => {
                           <p className="text-gray-500 text-sm mb-2">📍 {user.location}</p>
                         )}
 
-                        <p className="text-gray-500 text-sm mb-4 truncate" title={user.email}>
-                          📧 {user.email}
-                        </p>
-
-                        <button
-                          title={`Contact ${user.firstName}`}
-                          className="button button-main w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
-                          onClick={() => window.open(`mailto:${user.email}`, '_blank')}
-                        >
-                          Contact {user.firstName}
-                        </button>
+                        {user.email && (
+                          <p className="text-gray-500 text-sm mb-2">📧 {user.email}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -667,6 +660,10 @@ const UsersDirectoryEdge = (): JSX.Element => {
           background: linear-gradient(135deg, #059669 0%, #2563eb 100%);
           transform: translateY(-2px);
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .buttonAction {
+          background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%) !important;
         }
       `}</style>
     </div>

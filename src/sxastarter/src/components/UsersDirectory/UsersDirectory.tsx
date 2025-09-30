@@ -126,21 +126,23 @@ const UsersDirectoryComponent = (): JSX.Element => {
               href="/api/test-api"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+              className="inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors buttonAction"
             >
               Test API
-            </a>
+            </a>{' '}
+            &nbsp;
             <a
               href="/api/proxy/users"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+              className="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors buttonAction"
             >
               Users API
-            </a>
+            </a>{' '}
+            &nbsp;
             <button
               onClick={handleRefresh}
-              className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
+              className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors buttonAction"
             >
               Refresh
             </button>
@@ -364,6 +366,9 @@ const UsersDirectoryComponent = (): JSX.Element => {
           background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
           transform: translateY(-2px);
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        .buttonAction {
+          background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%) !important;
         }
       `}</style>
     </div>
