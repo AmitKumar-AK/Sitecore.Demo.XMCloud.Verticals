@@ -110,9 +110,11 @@ export default async function handler(req, res) {
         const pagesToPurge = pages || [1, 2, 3, 4, 5];
         const purgeResults = [];
 
+        // Replace the problematic JSON parsing section (around lines 120-140)
         for (const page of pagesToPurge) {
-          // Update the purge logic with proper authentication
           const purgeUrl = `${baseUrl}/api/edge/users?page=${page}&limit=12&nocache=true&revalidate=${Date.now()}`;
+          
+          console.log(`🔄 Attempting to purge page ${page}: ${purgeUrl}`);
 
           try {
             const response = await fetch(purgeUrl, {
@@ -123,22 +125,47 @@ export default async function handler(req, res) {
                 'X-Cache-Purge': 'true',
                 'X-Internal-Request': 'true',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
-                Pragma: 'no-cache',
+                'Pragma': 'no-cache',
               },
               signal: AbortSignal.timeout(15000),
             });
 
-            // Parse response to verify success
+            console.log(`📊 Response for page ${page}:`, {
+              status: response.status,
+              statusText: response.statusText,
+              contentType: response.headers.get('content-type'),
+              url: purgeUrl
+            });
+
+            // Fix: Only parse JSON once and handle errors properly
             let responseData = null;
+            let parseError = null;
+
             try {
-              responseData = await response.json();
-              console.log(`📋 Response data for page ${page}:`, {
-                success: responseData.success,
-                dataCount: responseData.data?.data?.length,
-                pagination: responseData.pagination
-              });
-            } catch (parseError) {
-              console.log(`⚠️ Could not parse JSON for page ${page}:`, parseError.message);
+              // Clone the response since it can only be read once
+              const responseClone = response.clone();
+              const responseText = await responseClone.text();
+              
+              console.log(`📋 Raw response for page ${page} (first 200 chars):`, 
+                responseText.substring(0, 200)
+              );
+
+              // Check if it's actually JSON
+              if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+                responseData = JSON.parse(responseText);
+                console.log(`✅ JSON parsed successfully for page ${page}:`, {
+                  success: responseData.success,
+                  dataCount: responseData.data?.data?.length,
+                  cacheBypass: responseData.cache?.bypass
+                });
+              } else {
+                parseError = `Response is not JSON. Content: ${responseText.substring(0, 100)}...`;
+                console.log(`⚠️ Non-JSON response for page ${page}:`, parseError);
+              }
+              
+            } catch (jsonError) {
+              parseError = `JSON parse error: ${jsonError.message}`;
+              console.error(`❌ JSON parse error for page ${page}:`, parseError);
             }
 
             const newEtag = response.headers.get('ETag');
@@ -150,19 +177,23 @@ export default async function handler(req, res) {
               success: response.ok,
               newEtag,
               dataCount: responseData?.data?.data?.length || 0,
-              cacheBypass: responseData?.cache?.bypass || false
+              cacheBypass: responseData?.cache?.bypass || false,
+              parseError
             });
 
-            console.log(`✅ Page ${page} purged: ${response.status} ${response.ok ? 'SUCCESS' : 'FAILED'}`);
+            console.log(`${response.ok ? '✅' : '❌'} Page ${page} result: ${response.status} ${response.ok ? 'SUCCESS' : 'FAILED'}`);
+            
           } catch (error) {
-            console.error(`❌ Failed to purge page ${page}:`, error.message);
+            console.error(`❌ Network error for page ${page}:`, error.message);
             purgeResults.push({
               page,
-              url: `${baseUrl}/api/edge/users?page=${page}&limit=12`,
+              url: purgeUrl,
               status: 0,
               success: false,
               error: error.message,
-              newEtag: null
+              newEtag: null,
+              dataCount: 0,
+              cacheBypass: false
             });
           }
         }
