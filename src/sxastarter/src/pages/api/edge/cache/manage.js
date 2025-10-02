@@ -97,6 +97,7 @@ export default async function handler(req, res) {
         });
       }
 
+      // Update the purge case (around line 115) with proper authentication
       case 'purge': {
         if (method !== 'POST') {
           res.setHeader('Allow', ['POST']);
@@ -110,7 +111,6 @@ export default async function handler(req, res) {
         const pagesToPurge = pages || [1, 2, 3, 4, 5];
         const purgeResults = [];
 
-        // Replace the problematic JSON parsing section (around lines 120-140)
         for (const page of pagesToPurge) {
           const purgeUrl = `${baseUrl}/api/edge/users?page=${page}&limit=12&nocache=true&revalidate=${Date.now()}`;
           
@@ -124,6 +124,8 @@ export default async function handler(req, res) {
                 'Accept': 'application/json',
                 'X-Cache-Purge': 'true',
                 'X-Internal-Request': 'true',
+                // ✅ Add proper authentication - this is the key fix
+                'Authorization': `Bearer ${process.env.ADMIN_SECRET}`,
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
               },
@@ -137,12 +139,10 @@ export default async function handler(req, res) {
               url: purgeUrl
             });
 
-            // Fix: Only parse JSON once and handle errors properly
             let responseData = null;
             let parseError = null;
 
             try {
-              // Clone the response since it can only be read once
               const responseClone = response.clone();
               const responseText = await responseClone.text();
               
@@ -150,7 +150,6 @@ export default async function handler(req, res) {
                 responseText.substring(0, 200)
               );
 
-              // Check if it's actually JSON
               if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
                 responseData = JSON.parse(responseText);
                 console.log(`✅ JSON parsed successfully for page ${page}:`, {
@@ -178,7 +177,10 @@ export default async function handler(req, res) {
               newEtag,
               dataCount: responseData?.data?.data?.length || 0,
               cacheBypass: responseData?.cache?.bypass || false,
-              parseError
+              parseError,
+              // ✅ Add debug info
+              authHeaderSent: 'Bearer ***',
+              contentType: response.headers.get('content-type')
             });
 
             console.log(`${response.ok ? '✅' : '❌'} Page ${page} result: ${response.status} ${response.ok ? 'SUCCESS' : 'FAILED'}`);
@@ -207,6 +209,9 @@ export default async function handler(req, res) {
             force,
           },
           results: purgeResults,
+          // ✅ Add debug info
+          authUsed: 'Bearer ***',
+          baseUrl,
           meta: {
             timestamp: new Date().toISOString(),
             duration: Date.now() - startTime,
