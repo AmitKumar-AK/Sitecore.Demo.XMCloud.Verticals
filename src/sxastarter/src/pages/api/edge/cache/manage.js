@@ -112,17 +112,15 @@ export default async function handler(req, res) {
 
         for (const page of pagesToPurge) {
           // Update the purge logic with proper authentication
-          const purgeUrl = `${baseUrl}/api/edge/users?page=${page}&nocache=true&revalidate=${Date.now()}`;
+          const purgeUrl = `${baseUrl}/api/edge/users?page=${page}&limit=12&nocache=true&revalidate=${Date.now()}`;
 
           try {
             const response = await fetch(purgeUrl, {
               method: 'GET',
               headers: {
                 'User-Agent': 'Vercel-Cache-Management/1.0',
+                'Accept': 'application/json',
                 'X-Cache-Purge': 'true',
-                Accept: 'application/json',
-                // Add authentication for internal API calls
-                Authorization: `Bearer ${process.env.CRON_SECRET || process.env.ADMIN_SECRET}`,
                 'X-Internal-Request': 'true',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 Pragma: 'no-cache',
@@ -130,19 +128,41 @@ export default async function handler(req, res) {
               signal: AbortSignal.timeout(15000),
             });
 
+            // Parse response to verify success
+            let responseData = null;
+            try {
+              responseData = await response.json();
+              console.log(`📋 Response data for page ${page}:`, {
+                success: responseData.success,
+                dataCount: responseData.data?.data?.length,
+                pagination: responseData.pagination
+              });
+            } catch (parseError) {
+              console.log(`⚠️ Could not parse JSON for page ${page}:`, parseError.message);
+            }
+
+            const newEtag = response.headers.get('ETag');
+
             purgeResults.push({
               page,
               url: purgeUrl,
               status: response.status,
               success: response.ok,
-              newEtag: response.headers.get('ETag'),
+              newEtag,
+              dataCount: responseData?.data?.data?.length || 0,
+              cacheBypass: responseData?.cache?.bypass || false
             });
+
+            console.log(`✅ Page ${page} purged: ${response.status} ${response.ok ? 'SUCCESS' : 'FAILED'}`);
           } catch (error) {
+            console.error(`❌ Failed to purge page ${page}:`, error.message);
             purgeResults.push({
               page,
-              url: purgeUrl,
+              url: `${baseUrl}/api/edge/users?page=${page}&limit=12`,
+              status: 0,
               success: false,
               error: error.message,
+              newEtag: null
             });
           }
         }
