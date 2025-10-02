@@ -74,9 +74,22 @@ function setDevCache(cacheKey, data, cacheTime) {
   });
 }
 
+// Add this to your API route if not already present
 export default async function handler(req, res) {
   const requestStart = Date.now();
   const isDevelopment = process.env.NODE_ENV === 'development';
+
+  console.log('🚀 SERVER: Request received:', {
+    method: req.method,
+    url: req.url,
+    query: req.query,
+    headers: {
+      userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
+      cacheControl: req.headers['cache-control'],
+      pragma: req.headers['pragma'],
+    },
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     // Validate request using your existing validation
@@ -108,14 +121,14 @@ export default async function handler(req, res) {
     const cacheKey = getCacheKey(pageNum, limitNum);
     const bypassCache = nocache === 'true' || !cacheConfig.enabled;
 
-    console.log('=== CACHE CONFIGURATION ===');
+    console.log('=== SERVER: CACHE CONFIGURATION ===');
     console.log('Environment:', isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION');
     console.log('Cache Enabled:', cacheConfig.enabled);
-    console.log('Default Cache Time:', cacheConfig.defaultCacheTime);
-    console.log('Current Cache Time:', cacheTime);
     console.log('Cache Key:', cacheKey);
     console.log('Bypass Cache:', bypassCache);
-    console.log('Dev Cache Size:', isDevelopment ? devCache.size : 'N/A (Production)');
+    console.log('Force Refresh Requested:', !!revalidate);
+    console.log('No Cache Parameter:', nocache);
+    console.log('Dev Cache Size:', isDevelopment ? devCache.size : 'N/A');
 
     // Set proper HTTP caching headers FIRST (for production)
     if (!bypassCache && cacheConfig.enabled) {
@@ -158,7 +171,12 @@ export default async function handler(req, res) {
     }
 
     if (cachedData) {
-      console.log('🟢 DEV CACHE HIT - Returning cached data');
+      console.log('🟢 SERVER: CACHE HIT - Returning cached data');
+      console.log('📊 SERVER: Cache details:', {
+        key: cacheKey,
+        age: Math.round((Date.now() - cachedData.timestamp) / 1000) + 's',
+        size: JSON.stringify(cachedData.data).length + ' bytes',
+      });
 
       // Set response headers for cache hit
       res.setHeader('ETag', etag);
@@ -186,6 +204,9 @@ export default async function handler(req, res) {
       console.log('========================');
 
       return res.status(200).json(cachedResponse);
+    } else {
+      console.log('🔴 SERVER: CACHE MISS - Making external API call');
+      console.log('📡 SERVER: Calling external API...');
     }
 
     // Make API call
@@ -321,7 +342,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(responseData);
   } catch (error) {
-    console.error('🚨 Users API Error:', error);
+    console.error('🚨 SERVER: Request failed:', error);
     const totalDuration = Date.now() - requestStart;
 
     const cacheConfig = getCacheConfig();

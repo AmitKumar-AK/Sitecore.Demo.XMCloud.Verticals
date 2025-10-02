@@ -82,167 +82,298 @@ const UsersDirectoryEdge = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [cacheInfo, setCacheInfo] = useState<ApiResponse['cache'] | null>(null); // Fix any type
-  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetric[]>([]); // Fix any type
+  const [cacheInfo, setCacheInfo] = useState<ApiResponse['cache'] | null>(null);
+  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetric[]>([]);
+  const [freshMode, setFreshMode] = useState(false); // Add fresh mode tracking
 
-  const logCacheAnalysis = (response: Response, data: ApiResponse, requestStart: number) => {
-    const requestDuration = Date.now() - requestStart;
+  // Updated logCacheAnalysis function
+  const logCacheAnalysis = useCallback(
+    (response: Response, data: ApiResponse, requestStart: number) => {
+      const requestDuration = Date.now() - requestStart;
 
-    // Extract cache-related headers
-    const cacheHeaders: CacheHeaders = {
-      vercelCache: response.headers.get('X-Vercel-Cache'),
-      edgeCache: response.headers.get('X-Edge-Cache'),
-      cacheControl: response.headers.get('Cache-Control'),
-      dataSource: response.headers.get('X-Data-Source'),
-      apiDuration: response.headers.get('X-API-Duration'),
-      totalDuration: response.headers.get('X-Total-Duration'),
-      requestId: response.headers.get('X-Request-ID'),
-      etag: response.headers.get('ETag'),
-      cacheAge: response.headers.get('Age'),
-      edgeTtl: response.headers.get('X-Edge-TTL'),
-    };
+      // Extract cache-related headers
+      const cacheHeaders: CacheHeaders = {
+        vercelCache: response.headers.get('X-Vercel-Cache'),
+        edgeCache: response.headers.get('X-Edge-Cache'),
+        cacheControl: response.headers.get('Cache-Control'),
+        dataSource: response.headers.get('X-Data-Source'),
+        apiDuration: response.headers.get('X-API-Duration'),
+        totalDuration: response.headers.get('X-Total-Duration'),
+        requestId: response.headers.get('X-Request-ID'),
+        etag: response.headers.get('ETag'),
+        cacheAge: response.headers.get('Age'),
+        edgeTtl: response.headers.get('X-Edge-TTL'),
+      };
 
-    // Determine cache status
-    const isCacheHit = cacheHeaders.vercelCache === 'HIT';
-    const isEdgeCached = cacheHeaders.edgeCache === 'enabled';
-    const isDirectAPI = cacheHeaders.dataSource === 'external-api' && cacheHeaders.apiDuration;
+      // Determine cache status
+      const isCacheHit = cacheHeaders.vercelCache === 'HIT';
+      const isEdgeCached = cacheHeaders.edgeCache === 'enabled';
+      const isDirectAPI = cacheHeaders.dataSource === 'external-api' && cacheHeaders.apiDuration;
 
-    console.group('🚀 Vercel Edge Cache Analysis');
-    console.log('📊 Request Metrics:', {
-      requestDuration: `${requestDuration}ms`,
-      serverDuration: `${data.meta.duration}ms`,
-      apiDuration: cacheHeaders.apiDuration ? `${cacheHeaders.apiDuration}ms` : 'N/A (cached)',
-      dataSource: data.meta.dataSource,
-      requestId: cacheHeaders.requestId,
-    });
-
-    console.log('🔄 Cache Status:', {
-      vercelCacheStatus: cacheHeaders.vercelCache || 'NOT_SET',
-      edgeCacheEnabled: isEdgeCached,
-      isCacheHit: isCacheHit,
-      isDirectAPICall: isDirectAPI,
-      cacheAge: cacheHeaders.cacheAge ? `${cacheHeaders.cacheAge}s` : 'N/A',
-      etag: cacheHeaders.etag,
-    });
-
-    console.log('⚙️ Cache Configuration:', {
-      enabled: data.cache.enabled,
-      ttl: `${data.cache.ttl}s`,
-      staleTtl: `${data.cache.staleTtl}s`,
-      tags: data.cache.tags.join(', '),
-      bypass: data.cache.bypass,
-    });
-
-    if (isDirectAPI) {
-      console.log('📡 API Call Details:', {
-        attempts: data.meta.api.attempts || 1,
-        success: data.meta.api.success,
-        error: data.meta.api.error || 'None',
+      console.group('🚀 Vercel Edge Cache Analysis');
+      console.log('📊 Request Metrics:', {
+        requestDuration: `${requestDuration}ms`,
+        serverDuration: `${data.meta.duration}ms`,
+        apiDuration: cacheHeaders.apiDuration ? `${cacheHeaders.apiDuration}ms` : 'N/A (cached)',
+        dataSource: data.meta.dataSource,
+        requestId: cacheHeaders.requestId,
+        freshMode: freshMode ? '🟢 ACTIVE' : '🔴 DISABLED',
       });
-    }
 
-    console.log('📈 Performance Indicators:', {
-      responseSpeed:
-        requestDuration < 100 ? '🟢 Fast' : requestDuration < 500 ? '🟡 Medium' : '🔴 Slow',
-      cacheEffectiveness: isCacheHit ? '🟢 Cache Hit' : isDirectAPI ? '🔴 API Call' : '🟡 Fallback',
-      dataFreshness: data.meta.dataSource === 'external-api' ? '🟢 Fresh' : '🟡 Cached/Mock',
-    });
+      console.log('🔄 Cache Status:', {
+        vercelCacheStatus: cacheHeaders.vercelCache || 'NOT_SET',
+        edgeCacheEnabled: isEdgeCached,
+        isCacheHit: isCacheHit,
+        isDirectAPICall: isDirectAPI,
+        cacheAge: cacheHeaders.cacheAge ? `${cacheHeaders.cacheAge}s` : 'N/A',
+        etag: cacheHeaders.etag,
+      });
 
-    // Log cache control headers for debugging
-    if (cacheHeaders.cacheControl) {
-      console.log('📋 Cache-Control Header:', cacheHeaders.cacheControl);
-    }
+      console.log('⚙️ Cache Configuration:', {
+        enabled: data.cache.enabled,
+        ttl: `${data.cache.ttl}s`,
+        staleTtl: `${data.cache.staleTtl}s`,
+        tags: data.cache.tags.join(', '),
+        bypass: data.cache.bypass,
+      });
 
-    console.groupEnd();
-
-    // Store metrics for display
-    const metric: PerformanceMetric = {
-      timestamp: new Date().toISOString(),
-      page: data.pagination.currentPage,
-      requestDuration,
-      serverDuration: data.meta.duration,
-      apiDuration: cacheHeaders.apiDuration ? parseInt(cacheHeaders.apiDuration) : null,
-      cacheStatus: cacheHeaders.vercelCache || 'UNKNOWN',
-      dataSource: data.meta.dataSource,
-      isCacheHit,
-      itemsReturned: data.data.data.length,
-    };
-
-    setPerformanceMetrics((prev) => [...prev.slice(-9), metric]); // Keep last 10 requests
-  };
-
-  const loadUsers = useCallback(async (pageNum = 1, append = false) => {
-    setLoading(true);
-    setError(null);
-
-    const requestStart = Date.now();
-
-    try {
-      console.log(`🔄 Loading users from Vercel Edge API - Page: ${pageNum}, Append: ${append}`);
-
-      const response = await fetch(`/api/edge/users?page=${pageNum}&limit=12`);
-
-      if (!response.ok) {
-        throw new Error(`Edge API failed: ${response.status}: ${response.statusText}`);
+      if (isDirectAPI) {
+        console.log('📡 API Call Details:', {
+          attempts: data.meta.api.attempts || 1,
+          success: data.meta.api.success,
+          error: data.meta.api.error || 'None',
+        });
       }
 
-      const result: ApiResponse = await response.json();
+      console.log('📈 Performance Indicators:', {
+        responseSpeed:
+          requestDuration < 100 ? '🟢 Fast' : requestDuration < 500 ? '🟡 Medium' : '🔴 Slow',
+        cacheEffectiveness: isCacheHit
+          ? '🟢 Cache Hit'
+          : isDirectAPI
+          ? '🔴 API Call'
+          : '🟡 Fallback',
+        dataFreshness: data.meta.dataSource === 'external-api' ? '🟢 Fresh' : '🟡 Cached/Mock',
+      });
 
-      // Perform cache analysis and logging
-      logCacheAnalysis(response, result, requestStart);
+      console.groupEnd();
 
-      if (result.success && result.data?.data) {
-        const newUsers = result.data.data;
-        setUsers((prev) => (append ? [...prev, ...newUsers] : newUsers));
-        setHasMore(newUsers.length === 12);
-        setCacheInfo(result.cache);
-      } else {
-        throw new Error('Invalid Edge API response structure');
+      // Store metrics for display
+      const metric: PerformanceMetric = {
+        timestamp: new Date().toISOString(),
+        page: data.pagination.currentPage,
+        requestDuration,
+        serverDuration: data.meta.duration,
+        apiDuration: cacheHeaders.apiDuration ? parseInt(cacheHeaders.apiDuration) : null,
+        cacheStatus: cacheHeaders.vercelCache || 'UNKNOWN',
+        dataSource: data.meta.dataSource,
+        isCacheHit,
+        itemsReturned: data.data.data.length,
+      };
+
+      setPerformanceMetrics((prev) => [...prev.slice(-9), metric]);
+    },
+    [freshMode]
+  ); // ← Add freshMode as dependency
+
+  // Updated loadUsers function with proper state handling
+  const loadUsers = useCallback(
+    async (pageNum = 1, append = false, forceRefresh = false) => {
+      setLoading(true);
+      setError(null);
+
+      const requestStart = Date.now();
+
+      try {
+        console.log(`🔄 Loading users from Vercel Edge API:`, {
+          page: pageNum,
+          append,
+          forceRefresh,
+          freshMode,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Build API URL with cache bypass parameters when needed
+        let apiUrl = `/api/edge/users?page=${pageNum}&limit=12`;
+
+        // Add cache bypass parameters when force refresh or fresh mode is active
+        if (forceRefresh || freshMode) {
+          apiUrl += `&nocache=true&revalidate=${Date.now()}`;
+          console.log('🔄 EDGE: Force refresh enabled - cache bypass parameters added');
+        }
+
+        console.log('📡 EDGE: Making API call to:', apiUrl);
+
+        const response = await fetch(apiUrl, {
+          // Add no-cache headers when forcing refresh
+          ...((forceRefresh || freshMode) && {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache',
+            },
+          }),
+        });
+
+        const requestDuration = Date.now() - requestStart;
+
+        // Log response headers for cache analysis
+        console.log('📊 EDGE: Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          duration: requestDuration + 'ms',
+          headers: {
+            vercelCache: response.headers.get('X-Vercel-Cache'),
+            edgeCache: response.headers.get('X-Edge-Cache'),
+            dataSource: response.headers.get('X-Data-Source'),
+            totalDuration: response.headers.get('X-Total-Duration'),
+            apiDuration: response.headers.get('X-API-Duration'),
+            etag: response.headers.get('ETag'),
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Edge API failed: ${response.status}: ${response.statusText}`);
+        }
+
+        const result: ApiResponse = await response.json();
+
+        // Perform cache analysis and logging
+        logCacheAnalysis(response, result, requestStart);
+
+        console.log('📋 EDGE: API Result received:', {
+          success: result.success,
+          dataLength: result.data?.data?.length,
+          pagination: result.pagination,
+          cacheInfo: result.cache,
+          meta: result.meta,
+        });
+
+        if (result.success && result.data?.data) {
+          const newUsers = result.data.data;
+
+          // Update users state with proper handling
+          setUsers((prevUsers) => {
+            const updatedUsers = append ? [...prevUsers, ...newUsers] : newUsers;
+
+            console.log('✅ EDGE: Users state updated:', {
+              newUsersCount: newUsers.length,
+              previousUsersCount: prevUsers.length,
+              totalUsersNow: updatedUsers.length,
+              hasMore: newUsers.length === 12,
+              append,
+            });
+
+            return updatedUsers;
+          });
+
+          setHasMore(newUsers.length === 12);
+          setCacheInfo(result.cache);
+        } else {
+          throw new Error('Invalid Edge API response structure');
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('❌ EDGE: Failed to load users:', {
+          error: errorMessage,
+          page: pageNum,
+          append,
+          forceRefresh,
+          freshMode,
+          duration: Date.now() - requestStart + 'ms',
+        });
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+        console.log('🏁 EDGE: Request completed:', {
+          page: pageNum,
+          totalDuration: Date.now() - requestStart + 'ms',
+        });
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('❌ Failed to load users from Edge API:', errorMessage);
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []); // Add useCallback to fix the useEffect dependency warning
+    },
+    [freshMode]
+  ); // ← Removed users.length from dependencies
 
   useEffect(() => {
     loadUsers(1, false);
-  }, [loadUsers]); // Include loadUsers in dependency array
+    // No return value needed here
+  }, [loadUsers]);
 
+  // Updated handleLoadMore with fresh mode support
   const handleLoadMore = () => {
     if (!loading && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
-      loadUsers(nextPage, true);
+
+      console.log('📄 EDGE: Load More clicked:', {
+        nextPage,
+        freshMode,
+        currentUsers: users.length,
+      });
+
+      // Use fresh mode if we recently refreshed
+      loadUsers(nextPage, true, freshMode);
     }
   };
 
-  const handleRefresh = () => {
-    console.log('🔄 Manual refresh triggered');
+  // Updated handleRefresh function - unified refresh functionality
+  const handleRefresh = async () => {
+    console.log('🔄 EDGE: Refresh button clicked - ENABLING FRESH MODE!');
+    console.log('📊 EDGE: Current state before refresh:', {
+      currentUsers: users.length,
+      currentPage: page,
+      hasError: !!error,
+      isLoading: loading,
+    });
+
+    setLoading(true);
     setPage(1);
     setError(null);
+    setFreshMode(true); // Enable fresh mode
     setPerformanceMetrics([]); // Clear metrics on refresh
-    loadUsers(1, false);
+
+    try {
+      // Clear cache for multiple pages (adjust range as needed)
+      const pagesToClear = [1, 2, 3, 4, 5];
+      const clearPromises = pagesToClear.map((pageNum) =>
+        fetch(`/api/edge/users?page=${pageNum}&limit=12&nocache=true&revalidate=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        })
+      );
+
+      console.log(`🧹 EDGE: Clearing cache for pages: ${pagesToClear.join(', ')}`);
+
+      // Wait for all cache clearing requests
+      await Promise.all(clearPromises);
+
+      console.log('✅ EDGE: All page caches cleared, loading fresh page 1');
+
+      // Clear current users and load fresh page 1 data
+      setUsers([]);
+      await loadUsers(1, false, true);
+    } catch (error) {
+      console.error('❌ EDGE: Failed to clear all caches:', error);
+      // Fallback: still try to refresh page 1
+      setUsers([]);
+      loadUsers(1, false, true);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleForceRefresh = () => {
-    console.log('🔄 Force refresh (bypass cache) triggered');
-    setPage(1);
-    setError(null);
-    // Add nocache parameter to bypass cache
-    fetch(`/api/edge/users?page=1&limit=12&nocache=true`)
-      .then((response) => response.json())
-      .then((result) => {
-        if (result.success) {
-          setUsers(result.data.data);
-          setCacheInfo(result.cache);
-        }
-      })
-      .catch(console.error);
-  };
+  // Auto-disable fresh mode after 5 minutes
+  useEffect(() => {
+    if (!freshMode) return; // Early return when freshMode is false
+
+    const timer = setTimeout(() => {
+      console.log('⏰ EDGE: Auto-disabling fresh mode after 5 minutes');
+      setFreshMode(false);
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearTimeout(timer);
+  }, [freshMode]);
 
   const getFullName = (user: User) => {
     return `${user.firstName} ${user.lastName}`;
@@ -277,7 +408,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
         {cacheInfo && (
           <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
             <h3 className="font-medium text-green-800 mb-3">🚀 Vercel Edge Cache Status</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div className="bg-white p-2 rounded">
                 <strong className="text-green-700">Status:</strong>
                 <br />
@@ -299,6 +430,13 @@ const UsersDirectoryEdge = (): JSX.Element => {
                 <strong className="text-orange-700">Tags:</strong>
                 <br />
                 <span className="text-orange-600 text-xs">{cacheInfo.tags?.join(', ')}</span>
+              </div>
+              <div className="bg-white p-2 rounded">
+                <strong className="text-red-700">Bypass:</strong>
+                <br />
+                <span className={cacheInfo.bypass ? 'text-red-600' : 'text-green-600'}>
+                  {cacheInfo.bypass ? '🔴 Active' : '✅ Normal'}
+                </span>
               </div>
             </div>
           </div>
@@ -367,66 +505,49 @@ const UsersDirectoryEdge = (): JSX.Element => {
           </div>
         )}
 
-        {/* Debug Controls */}
+        {/* Debug Controls - Enhanced */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h3 className="font-medium text-blue-800 mb-2">🛠️ Debug Controls & Information</h3>
-          <ul className="text-sm text-blue-700 mb-3">
-            <li>
-              <strong>Users loaded:</strong> {users.length}
-            </li>
-            <li>
-              <strong>Current page:</strong> {page}
-            </li>
-            <li>
-              <strong>Has more:</strong> {hasMore ? 'Yes' : 'No'}
-            </li>
-            <li>
-              <strong>Loading:</strong> {loading ? 'Yes' : 'No'}
-            </li>
-            <li>
-              <strong>Error:</strong> {error || 'None'}
-            </li>
-            <li>
-              <strong>Performance entries:</strong> {performanceMetrics.length}
-            </li>
-          </ul>
-          <div className="space-x-2">
-            <a
-              href="/api/edge/users"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
-            >
-              🌐 Edge API
-            </a>
-            <a
-              href="/api/edge/users?usemock=true"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
-            >
-              🎭 Force Mock
-            </a>
-            <a
-              href="/api/edge/users?nocache=true"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
-            >
-              🚫 Bypass Cache
-            </a>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="text-sm text-blue-700">
+              <div>
+                <strong>Users loaded:</strong> {users.length}
+              </div>
+              <div>
+                <strong>Current page:</strong> {page}
+              </div>
+              <div>
+                <strong>Has more:</strong> {hasMore ? 'Yes' : 'No'}
+              </div>
+              <div>
+                <strong>Loading:</strong> {loading ? 'Yes' : 'No'}
+              </div>
+            </div>
+            <div className="text-sm text-blue-700">
+              <div>
+                <strong>Error:</strong> {error || 'None'}
+              </div>
+              <div>
+                <strong>Fresh Mode:</strong> {freshMode ? '🟢 Active' : '🔴 Disabled'}
+              </div>
+              <div>
+                <strong>Last Action:</strong> {loading ? 'Loading...' : 'Idle'}
+              </div>
+              <div>
+                <strong>Component State:</strong> {users.length > 0 ? 'Ready' : 'Empty'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
             <button
               onClick={handleRefresh}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors buttonAction"
+              disabled={loading}
+              className="px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed buttonAction"
+              type="button"
             >
-              🔄 Refresh
-            </button>{' '}
-            &nbsp;
-            <button
-              onClick={handleForceRefresh}
-              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors buttonAction"
-            >
-              💥 Force Refresh
+              {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
             </button>
           </div>
         </div>
@@ -493,8 +614,12 @@ const UsersDirectoryEdge = (): JSX.Element => {
                         </div>
 
                         {/* Edge Cache Indicator */}
-                        <div className="absolute top-4 right-4 bg-green-500 bg-opacity-90 text-white text-xs px-2 py-1 rounded-full">
-                          ⚡ Edge
+                        <div
+                          className={`absolute top-4 right-4 text-white text-xs px-2 py-1 rounded-full ${
+                            freshMode ? 'bg-red-500 bg-opacity-90' : 'bg-green-500 bg-opacity-90'
+                          }`}
+                        >
+                          {freshMode ? '🔥 Fresh' : '⚡ Edge'}
                         </div>
                       </div>
 
@@ -568,7 +693,9 @@ const UsersDirectoryEdge = (): JSX.Element => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span className="text-green-600 font-medium">Loading from Vercel Edge...</span>
+              <span className="text-green-600 font-medium">
+                Loading from Vercel Edge{freshMode ? ' (Fresh Mode)' : ''}...
+              </span>
             </div>
           )}
 
@@ -577,13 +704,15 @@ const UsersDirectoryEdge = (): JSX.Element => {
               onClick={handleLoadMore}
               className="button button-main bg-gradient-to-r from-green-600 to-blue-600 text-white text-lg font-medium rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 px-8 py-4"
             >
-              Load More Team Members ⚡
+              Load More Team Members {freshMode ? '🔥' : '⚡'}
             </button>
           )}
 
           {!loading && !hasMore && users.length > 0 && (
             <div className="bg-gray-50 rounded-lg px-6 py-4 inline-block">
-              <p className="text-gray-600">All team members loaded from Vercel Edge Cache ⚡</p>
+              <p className="text-gray-600">
+                All team members loaded from Vercel Edge Cache {freshMode ? '🔥' : '⚡'}
+              </p>
             </div>
           )}
         </div>

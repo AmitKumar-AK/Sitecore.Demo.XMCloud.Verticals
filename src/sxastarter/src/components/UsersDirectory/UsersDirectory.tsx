@@ -15,42 +15,106 @@ const UsersDirectoryComponent = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  // Add this state to track fresh mode
+  const [freshMode, setFreshMode] = useState(false);
 
-  const loadUsers = async (pageNum = 1, append = false) => {
+  const loadUsers = async (pageNum = 1, append = false, forceRefresh = false) => {
+    const requestStart = Date.now();
     setLoading(true);
     setError(null);
 
     try {
-      console.log(`Loading users - Page: ${pageNum}, Append: ${append}`);
+      console.log('🚀 CLIENT: Starting request:', {
+        page: pageNum,
+        append,
+        forceRefresh,
+        timestamp: new Date().toISOString(),
+      });
 
-      const response = await fetch(`/api/proxy/users?page=${pageNum}&limit=12`);
+      let apiUrl = `/api/proxy/users?page=${pageNum}&limit=12`;
+
+      // Add cache bypass parameters when force refresh is requested
+      if (forceRefresh) {
+        apiUrl += `&nocache=true&revalidate=${Date.now()}`;
+        console.log('🔄 CLIENT: Force refresh enabled - cache bypass parameters added');
+      }
+
+      console.log('📡 CLIENT: Making API call to:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        // Add no-cache headers when forcing refresh
+        ...(forceRefresh && {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        }),
+      });
+
+      const requestDuration = Date.now() - requestStart;
+
+      // Log response headers for cache analysis
+      console.log('📊 CLIENT: Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        duration: requestDuration + 'ms',
+        headers: {
+          cacheStatus: response.headers.get('X-Cache-Status'),
+          dataSource: response.headers.get('X-Data-Source'),
+          totalDuration: response.headers.get('X-Total-Duration'),
+          apiDuration: response.headers.get('X-API-Call-Duration'),
+          cacheKey: response.headers.get('X-Cache-Key'),
+          vercelCache: response.headers.get('X-Vercel-Cache'),
+          etag: response.headers.get('ETag'),
+        },
+      });
 
       if (!response.ok) {
-        console.log('Users API failed, testing with test-api...');
+        console.log('❌ CLIENT: Users API failed, testing with test-api...');
         const testResponse = await fetch('/api/test-api');
         const testResult = await testResponse.json();
-        console.log('Test API works:', testResult);
+        console.log('✅ CLIENT: Test API works:', testResult);
 
         throw new Error(`Users API failed: ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log('Users API Result:', result);
+
+      console.log('📋 CLIENT: API Result received:', {
+        success: result.success,
+        dataLength: result.data?.data?.length,
+        pagination: result.pagination,
+        cacheInfo: result.cache,
+        meta: result.meta,
+      });
 
       if (result.success && result.data?.data) {
         const newUsers = result.data.data;
         setUsers((prev) => (append ? [...prev, ...newUsers] : newUsers));
         setHasMore(newUsers.length === 12);
+
+        console.log('✅ CLIENT: Users state updated:', {
+          newUsersCount: newUsers.length,
+          totalUsersNow: append ? users.length + newUsers.length : newUsers.length,
+          hasMore: newUsers.length === 12,
+        });
       } else {
         throw new Error('Invalid API response structure');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Failed to load users:', errorMessage);
+      console.error('❌ CLIENT: Failed to load users:', {
+        error: errorMessage,
+        page: pageNum,
+        append,
+        forceRefresh,
+        duration: Date.now() - requestStart + 'ms',
+      });
       setError(errorMessage);
 
       // For testing purposes, show mock data when API fails
       if (!append) {
+        console.log('🎭 CLIENT: Using mock data due to API failure');
         const mockUsers: User[] = Array.from({ length: 9 }, (_, i) => ({
           id: `mock-${pageNum}-${i}`,
           firstName: `TestFirst${i}`,
@@ -63,6 +127,10 @@ const UsersDirectoryComponent = (): JSX.Element => {
       }
     } finally {
       setLoading(false);
+      console.log('🏁 CLIENT: Request completed:', {
+        page: pageNum,
+        totalDuration: Date.now() - requestStart + 'ms',
+      });
     }
   };
 
@@ -70,18 +138,55 @@ const UsersDirectoryComponent = (): JSX.Element => {
     loadUsers(1, false);
   }, []);
 
+  // Updated handleLoadMore function
   const handleLoadMore = () => {
     if (!loading && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
-      loadUsers(nextPage, true);
+
+      // Use fresh mode if we recently refreshed
+      console.log('📄 CLIENT: Load More clicked - Fresh Mode:', freshMode);
+      loadUsers(nextPage, true, freshMode); // ← Pass freshMode for force refresh
     }
   };
 
-  const handleRefresh = () => {
+  // Updated handleRefresh function to enable fresh mode
+  const handleRefresh = async () => {
+    console.log('🔄 CLIENT: Refresh button clicked - ENABLING FRESH MODE!');
+
+    setLoading(true);
     setPage(1);
     setError(null);
-    loadUsers(1, false);
+    setFreshMode(true); // ← Enable fresh mode
+
+    try {
+      // Clear cache for multiple pages (adjust range as needed)
+      const pagesToClear = [1, 2, 3, 4, 5];
+      const clearPromises = pagesToClear.map((pageNum) =>
+        fetch(`/api/proxy/users?page=${pageNum}&limit=12&nocache=true&revalidate=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        })
+      );
+
+      console.log(`🧹 CLIENT: Clearing cache for pages: ${pagesToClear.join(', ')}`);
+
+      // Wait for all cache clearing requests
+      await Promise.all(clearPromises);
+
+      console.log('✅ CLIENT: All page caches cleared, loading fresh page 1');
+
+      // Now load fresh page 1 data
+      await loadUsers(1, false, true);
+    } catch (error) {
+      console.error('❌ CLIENT: Failed to clear all caches:', error);
+      // Fallback: still try to refresh page 1
+      loadUsers(1, false, true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getFullName = (user: User) => {
@@ -111,40 +216,47 @@ const UsersDirectoryComponent = (): JSX.Element => {
           <p className="text-gray-600 text-center text-lg">Connect with our team members</p>
         </div>
 
-        {/* Debug Information - Keep for testing */}
+        {/* Debug Information - Hydration Safe Version */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-medium text-blue-800 mb-2">Debug Information:</h3>
-          <ul className="text-sm text-blue-700 mb-3">
-            <li>Users loaded: {users.length}</li>
-            <li>Current page: {page}</li>
-            <li>Has more: {hasMore ? 'Yes' : 'No'}</li>
-            <li>Loading: {loading ? 'Yes' : 'No'}</li>
-            <li>Error: {error || 'None'}</li>
-          </ul>
-          <div className="space-x-2">
-            <a
-              href="/api/test-api"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors buttonAction"
-            >
-              Test API
-            </a>{' '}
-            &nbsp;
-            <a
-              href="/api/proxy/users"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors buttonAction"
-            >
-              Users API
-            </a>{' '}
-            &nbsp;
+          <h3 className="font-medium text-blue-800 mb-2">🔧 Debug Information:</h3>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="text-sm text-blue-700">
+              <div>
+                <strong>Users loaded:</strong> {users.length}
+              </div>
+              <div>
+                <strong>Current page:</strong> {page}
+              </div>
+              <div>
+                <strong>Has more:</strong> {hasMore ? 'Yes' : 'No'}
+              </div>
+            </div>
+            <div className="text-sm text-blue-700">
+              <div>
+                <strong>Loading:</strong> {loading ? 'Yes' : 'No'}
+              </div>
+              <div>
+                <strong>Error:</strong> {error || 'None'}
+              </div>
+              <div>
+                <strong>Fresh Mode:</strong> {freshMode ? '🟢 Active' : '🔴 Disabled'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
             <button
-              onClick={handleRefresh}
-              className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors buttonAction"
+              onClick={(e) => {
+                e.preventDefault();
+                console.log('🔄 Refresh clicked');
+                handleRefresh();
+              }}
+              disabled={loading}
+              className="px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed buttonAction"
+              type="button"
             >
-              Refresh
+              {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
             </button>
           </div>
         </div>

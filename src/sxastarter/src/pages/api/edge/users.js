@@ -182,6 +182,23 @@ async function fetchFromExternalAPI(pageNum, limitNum, config) {
   throw lastError;
 }
 
+// Add this to your authorization check
+const isAuthorized = (req) => {
+  // Existing validation checks...
+
+  // Allow internal requests from cache management
+  if (req.headers['x-internal-request'] === 'true') {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      return token === process.env.CRON_SECRET || token === process.env.ADMIN_SECRET;
+    }
+  }
+
+  // Your existing authorization logic...
+  return true; // or your existing validation
+};
+
 export default async function handler(req, res) {
   const startTime = Date.now();
   const requestId = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

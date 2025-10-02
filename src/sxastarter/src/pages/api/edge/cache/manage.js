@@ -24,9 +24,27 @@ export default async function handler(req, res) {
 
     console.log('🛠️ Cache Management Request:', { method, action, pages, tags, force });
 
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
+    // Fix the baseUrl detection
+    const getBaseUrl = () => {
+      // Priority order for base URL detection
+      if (process.env.VERCEL_URL && process.env.VERCEL_ENV === 'production') {
+        return `https://${process.env.VERCEL_URL}`;
+      }
+
+      // Use your actual domain for production
+      if (process.env.VERCEL_ENV === 'production') {
+        return 'https://ak-xmc-live-services.vercel.app';
+      }
+
+      // For preview and development
+      if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+      }
+
+      return 'http://localhost:3000';
+    };
+
+    const baseUrl = getBaseUrl();
 
     switch (action) {
       case 'status': {
@@ -93,16 +111,23 @@ export default async function handler(req, res) {
         const purgeResults = [];
 
         for (const page of pagesToPurge) {
+          // Update the purge logic with proper authentication
           const purgeUrl = `${baseUrl}/api/edge/users?page=${page}&nocache=true&revalidate=${Date.now()}`;
 
           try {
             const response = await fetch(purgeUrl, {
               method: 'GET',
               headers: {
-                'User-Agent': 'Cache-Purge/1.0',
+                'User-Agent': 'Vercel-Cache-Management/1.0',
                 'X-Cache-Purge': 'true',
-                'Cache-Control': 'no-cache',
+                Accept: 'application/json',
+                // Add authentication for internal API calls
+                Authorization: `Bearer ${process.env.CRON_SECRET || process.env.ADMIN_SECRET}`,
+                'X-Internal-Request': 'true',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                Pragma: 'no-cache',
               },
+              signal: AbortSignal.timeout(15000),
             });
 
             purgeResults.push({
