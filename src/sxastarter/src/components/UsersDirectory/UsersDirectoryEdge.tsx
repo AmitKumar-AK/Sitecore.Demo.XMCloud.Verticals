@@ -82,9 +82,11 @@ const UsersDirectoryEdge = (): JSX.Element => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [cacheInfo, setCacheInfo] = useState<ApiResponse['cache'] | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<CacheHeaders | null>(null);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetric[]>([]);
   const [freshMode, setFreshMode] = useState(false); // Add fresh mode tracking
+
+  const bearerToken = process.env.NEXT_PUBLIC_API_BEARER_TOKEN;
 
   // Updated logCacheAnalysis function
   const logCacheAnalysis = useCallback(
@@ -164,7 +166,7 @@ const UsersDirectoryEdge = (): JSX.Element => {
         page: data.pagination.currentPage,
         requestDuration,
         serverDuration: data.meta.duration,
-        apiDuration: cacheHeaders.apiDuration ? parseInt(cacheHeaders.apiDuration) : null,
+        apiDuration: cacheHeaders.apiDuration ? Number.parseInt(cacheHeaders.apiDuration) : null,
         cacheStatus: cacheHeaders.vercelCache || 'UNKNOWN',
         dataSource: data.meta.dataSource,
         isCacheHit,
@@ -179,6 +181,12 @@ const UsersDirectoryEdge = (): JSX.Element => {
   // Updated loadUsers function with proper state handling
   const loadUsers = useCallback(
     async (pageNum = 1, append = false, forceRefresh = false) => {
+      if (!bearerToken) {
+        setError(
+          'API Bearer token not configured. Please set NEXT_PUBLIC_API_BEARER_TOKEN environment variable.'
+        );
+        return;
+      }
       setLoading(true);
       setError(null);
 
@@ -205,13 +213,17 @@ const UsersDirectoryEdge = (): JSX.Element => {
         console.log('📡 EDGE: Making API call to:', apiUrl);
 
         const response = await fetch(apiUrl, {
-          // Add no-cache headers when forcing refresh
-          ...((forceRefresh || freshMode) && {
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache',
-            },
-          }),
+          headers: {
+            Authorization: `Bearer ${bearerToken}`, // ✅ Always authenticate
+            Accept: 'application/json',
+            'User-Agent': 'UsersDirectory-Edge/1.0',
+            ...(forceRefresh || freshMode
+              ? {
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  Pragma: 'no-cache',
+                }
+              : {}),
+          },
         });
 
         const requestDuration = Date.now() - requestStart;
@@ -267,7 +279,20 @@ const UsersDirectoryEdge = (): JSX.Element => {
           });
 
           setHasMore(newUsers.length === 12);
-          setCacheInfo(result.cache);
+
+          const cacheHeaders: CacheHeaders = {
+            vercelCache: response.headers.get('X-Vercel-Cache'),
+            edgeCache: response.headers.get('X-Edge-Cache'),
+            cacheControl: response.headers.get('Cache-Control'),
+            dataSource: response.headers.get('X-Data-Source'),
+            apiDuration: response.headers.get('X-API-Duration'),
+            totalDuration: response.headers.get('X-Total-Duration'),
+            requestId: response.headers.get('X-Request-ID'),
+            etag: response.headers.get('ETag'),
+            cacheAge: response.headers.get('Age'),
+            edgeTtl: response.headers.get('X-Edge-TTL'),
+          };
+          setCacheInfo(cacheHeaders);
         } else {
           throw new Error('Invalid Edge API response structure');
         }
@@ -290,13 +315,16 @@ const UsersDirectoryEdge = (): JSX.Element => {
         });
       }
     },
-    [freshMode]
+    [bearerToken, freshMode, logCacheAnalysis]
   ); // ← Removed users.length from dependencies
 
+  // 1. Fix the useEffect around line 299
   useEffect(() => {
-    loadUsers(1, false);
-    // No return value needed here
-  }, [loadUsers]);
+    // Only load on initial mount
+    if (users.length === 0 && !loading) {
+      loadUsers(1, false);
+    }
+  }, []); // ✅ Empty dependency array to prevent infinite loops
 
   // Updated handleLoadMore with fresh mode support
   const handleLoadMore = () => {
@@ -412,30 +440,8 @@ const UsersDirectoryEdge = (): JSX.Element => {
               <div className="bg-white p-2 rounded">
                 <strong className="text-green-700">Status:</strong>
                 <br />
-                <span className={cacheInfo.enabled ? 'text-green-600' : 'text-red-600'}>
-                  {cacheInfo.enabled ? '✅ Enabled' : '❌ Disabled'}
-                </span>
-              </div>
-              <div className="bg-white p-2 rounded">
-                <strong className="text-blue-700">TTL:</strong>
-                <br />
-                <span className="text-blue-600">{cacheInfo.ttl}s</span>
-              </div>
-              <div className="bg-white p-2 rounded">
-                <strong className="text-purple-700">Stale TTL:</strong>
-                <br />
-                <span className="text-purple-600">{cacheInfo.staleTtl}s</span>
-              </div>
-              <div className="bg-white p-2 rounded">
-                <strong className="text-orange-700">Tags:</strong>
-                <br />
-                <span className="text-orange-600 text-xs">{cacheInfo.tags?.join(', ')}</span>
-              </div>
-              <div className="bg-white p-2 rounded">
-                <strong className="text-red-700">Bypass:</strong>
-                <br />
-                <span className={cacheInfo.bypass ? 'text-red-600' : 'text-green-600'}>
-                  {cacheInfo.bypass ? '🔴 Active' : '✅ Normal'}
+                <span className={cacheInfo.vercelCache ? 'text-green-600' : 'text-red-600'}>
+                  {cacheInfo.vercelCache ? '✅ Enabled' : '❌ Disabled'}
                 </span>
               </div>
             </div>
